@@ -311,6 +311,12 @@ end
 -- ============================================================
 local InternalStealCache = {}
 local PromptMemoryCache  = {}
+local CameraAimState     = { lastUID = nil, aimed = false }
+
+local function resetCameraAim()
+    CameraAimState.lastUID = nil
+    CameraAimState.aimed = false
+end
 
 local function findPrompt(plotName, slotName)
     local uid = plotName .. "_" .. slotName
@@ -364,9 +370,15 @@ local function forceGrabSpam(target)
     local dist = (hrp.Position - promptPos).Magnitude
     
     if dist <= 25 then
+        if CameraAimState.lastUID ~= target.uid then
+            CameraAimState.lastUID = target.uid
+            CameraAimState.aimed = false
+        end
+
         local cam = workspace.CurrentCamera
-        if cam then
+        if cam and not CameraAimState.aimed then
             cam.CFrame = CFrame.lookAt(cam.CFrame.Position, promptPos)
+            CameraAimState.aimed = true
         end
         
         local data = buildStealCallbacks(prompt)
@@ -449,6 +461,7 @@ local function stopMainASF()
     asfRunning = false
     asfLockPos = nil 
     activeTarget = nil 
+    resetCameraAim()
     if asfThread then pcall(function() task.cancel(asfThread) end); asfThread=nil end
     SetStealFloor(false)
     LocalPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
@@ -520,6 +533,9 @@ local function doOneCycle()
     
     local target = allAnimals[selectedTargetIndex]
     if not target then setASFStatus("❌ Sin objetivos", R(255,80,80)) task.wait(0.5); return false end
+    if not activeTarget or activeTarget.uid ~= target.uid then
+        resetCameraAim()
+    end
     activeTarget = target
 
     local brainrotPos = target.pos
@@ -596,6 +612,7 @@ local function doOneCycle()
     asfLockPos = nil 
     handleSpeedCoil(false)
     activeTarget = nil
+    resetCameraAim()
     task.wait(0.1)
     return true
 end
